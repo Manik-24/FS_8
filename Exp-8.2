@@ -1,0 +1,83 @@
+import React, { useState } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom'
+
+function fakeLogin(username, password) {
+  const roles = { admin: 'Admin', mod: 'Moderator', user: 'User' }
+  if (roles[username] && password === '1234') {
+    const token = btoa(JSON.stringify({ user: username, role: roles[username] }))
+    localStorage.setItem('token', token)
+    return true
+  }
+  return false
+}
+
+function getUser() {
+  const token = localStorage.getItem('token')
+  if (!token) return null
+  try { return JSON.parse(atob(token)) } catch { return null }
+}
+
+function ProtectedRoute({ children, allowedRoles }) {
+  const user = getUser()
+  if (!user) return <Navigate to="/login" />
+  if (!allowedRoles.includes(user.role)) return <Navigate to="/unauthorized" />
+  return children
+}
+
+function Login() {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const navigate = useNavigate()
+  const handleSubmit = e => {
+    e.preventDefault()
+    if (fakeLogin(username, password)) navigate('/dashboard')
+    else setError('Invalid credentials')
+  }
+  return (
+    <div style={{ textAlign: 'center', marginTop: '80px' }}>
+      <h2>Role-Based Login</h2>
+      <form onSubmit={handleSubmit}>
+        <input placeholder="Username (admin/mod/user)" value={username} onChange={e => setUsername(e.target.value)} /><br/><br/>
+        <input type="password" placeholder="Password (1234)" value={password} onChange={e => setPassword(e.target.value)} /><br/><br/>
+        <button type="submit">Login</button>
+      </form>
+      <p style={{ color: 'red' }}>{error}</p>
+    </div>
+  )
+}
+
+function Dashboard() {
+  const navigate = useNavigate()
+  const user = getUser()
+  return (
+    <div style={{ textAlign: 'center', marginTop: '80px' }}>
+      <h2>Welcome, {user?.user} ({user?.role})</h2>
+      <nav>
+        <Link to="/admin">Admin Page</Link> | <Link to="/mod">Moderator Page</Link> | <Link to="/user">User Page</Link>
+      </nav><br/>
+      <button onClick={() => { localStorage.removeItem('token'); navigate('/login') }}>Logout</button>
+    </div>
+  )
+}
+
+const AdminPage = () => <h2 style={{ textAlign: 'center', marginTop: '80px' }}>Admin Page 👑</h2>
+const ModPage = () => <h2 style={{ textAlign: 'center', marginTop: '80px' }}>Moderator Page 🔧</h2>
+const UserPage = () => <h2 style={{ textAlign: 'center', marginTop: '80px' }}>User Page 🙋‍♂️</h2>
+const Unauthorized = () => <h2 style={{ textAlign: 'center', marginTop: '80px', color: 'red' }}>Access Denied 🚫</h2>
+
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['Admin','User','Moderator']}><Dashboard /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={['Admin']}><AdminPage /></ProtectedRoute>} />
+        <Route path="/mod" element={<ProtectedRoute allowedRoles={['Moderator','Admin']}><ModPage /></ProtectedRoute>} />
+        <Route path="/user" element={<ProtectedRoute allowedRoles={['User','Admin','Moderator']}><UserPage /></ProtectedRoute>} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    </Router>
+  )
+}
