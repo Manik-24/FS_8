@@ -1,0 +1,70 @@
+import React, { useState } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import jwt_decode from 'jwt-decode'
+
+function fakeLogin(username, password) {
+  if (username === 'admin' && password === '1234') {
+    const token = btoa(JSON.stringify({ user: 'admin', exp: Date.now() + 60000 }))
+    localStorage.setItem('token', token)
+    return true
+  }
+  return false
+}
+
+function isAuthenticated() {
+  const token = localStorage.getItem('token')
+  if (!token) return false
+  try {
+    const decoded = JSON.parse(atob(token))
+    return decoded.exp > Date.now()
+  } catch { return false }
+}
+
+function ProtectedRoute({ children }) {
+  return isAuthenticated() ? children : <Navigate to="/login" />
+}
+
+function Login() {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const navigate = useNavigate()
+  const handleSubmit = e => {
+    e.preventDefault()
+    if (fakeLogin(username, password)) navigate('/dashboard')
+    else setError('Invalid credentials')
+  }
+  return (
+    <div style={{ textAlign: 'center', marginTop: '100px' }}>
+      <h2>Login</h2>
+      <form onSubmit={handleSubmit}>
+        <input placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} /><br/><br/>
+        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} /><br/><br/>
+        <button type="submit">Login</button>
+      </form>
+      <p style={{ color: 'red' }}>{error}</p>
+    </div>
+  )
+}
+
+function Dashboard() {
+  const navigate = useNavigate()
+  return (
+    <div style={{ textAlign: 'center', marginTop: '100px' }}>
+      <h2>Welcome to Dashboard 🔒</h2>
+      <button onClick={() => { localStorage.removeItem('token'); navigate('/login') }}>Logout</button>
+    </div>
+  )
+}
+
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    </Router>
+  )
+}
